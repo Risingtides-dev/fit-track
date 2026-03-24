@@ -1,5 +1,7 @@
 export type ExerciseType = "strength" | "cardio";
 
+export type WorkoutCategory = "push" | "pull" | "legs" | "upper" | "core" | "cardio" | "custom";
+
 export type MuscleGroup =
   | "chest"
   | "back"
@@ -17,6 +19,7 @@ export interface Exercise {
   name: string;
   type: ExerciseType;
   muscleGroup: MuscleGroup;
+  category: WorkoutCategory;
   isCustom: boolean;
 }
 
@@ -55,6 +58,7 @@ export interface Workout {
   startTime: string; // ISO datetime
   endTime?: string;
   name: string;
+  category?: WorkoutCategory;
   exercises: WorkoutExercise[];
   notes?: string;
 }

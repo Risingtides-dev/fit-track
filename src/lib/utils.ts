@@ -43,3 +43,15 @@ export function getEstimated1RM(weight: number, reps: number): number {
   // Brzycki formula
   return Math.round(weight * (36 / (37 - reps)));
 }
+
+import { WorkoutCategory } from "./types";
+
+export const CATEGORY_CONFIG: Record<WorkoutCategory, { label: string; color: string; bg: string }> = {
+  push: { label: "Push", color: "#f97316", bg: "rgba(249,115,22,0.15)" },
+  pull: { label: "Pull", color: "#8b5cf6", bg: "rgba(139,92,246,0.15)" },
+  legs: { label: "Legs", color: "#22c55e", bg: "rgba(34,197,94,0.15)" },
+  upper: { label: "Upper", color: "#3b82f6", bg: "rgba(59,130,246,0.15)" },
+  core: { label: "Core", color: "#eab308", bg: "rgba(234,179,8,0.15)" },
+  cardio: { label: "Cardio", color: "#ec4899", bg: "rgba(236,72,153,0.15)" },
+  custom: { label: "Custom", color: "#a0a0a0", bg: "rgba(160,160,160,0.15)" },
+};

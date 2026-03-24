@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
 import { getWorkouts, deleteWorkout } from "@/lib/db";
 import { Workout } from "@/lib/types";
-import { formatDate, getDuration } from "@/lib/utils";
+import { formatDate, getDuration, CATEGORY_CONFIG } from "@/lib/utils";
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -70,7 +70,20 @@ export default function HistoryPage() {
                       className="w-full text-left"
                     >
                       <div className="flex items-center justify-between">
-                        <p className="font-semibold text-sm">{w.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm">{w.name}</p>
+                          {w.category && w.category !== "custom" && (
+                            <span
+                              className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                              style={{
+                                background: CATEGORY_CONFIG[w.category].bg,
+                                color: CATEGORY_CONFIG[w.category].color,
+                              }}
+                            >
+                              {CATEGORY_CONFIG[w.category].label}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                           {getDuration(w.startTime, w.endTime)}
                         </span>

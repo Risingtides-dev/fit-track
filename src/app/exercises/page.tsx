@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import BottomNav from "@/components/BottomNav";
 import { getExercises, addCustomExercise, deleteCustomExercise } from "@/lib/db";
-import { Exercise, ExerciseType, MuscleGroup } from "@/lib/types";
-import { generateId } from "@/lib/utils";
+import { Exercise, ExerciseType, MuscleGroup, WorkoutCategory } from "@/lib/types";
+import { generateId, CATEGORY_CONFIG } from "@/lib/utils";
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   "chest", "back", "shoulders", "biceps", "triceps",
@@ -21,6 +21,7 @@ export default function ExercisesPage() {
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<ExerciseType>("strength");
   const [newMuscle, setNewMuscle] = useState<MuscleGroup>("chest");
+  const [newCategory, setNewCategory] = useState<WorkoutCategory>("push");
 
   useEffect(() => {
     getExercises().then(setExercises);
@@ -39,6 +40,7 @@ export default function ExercisesPage() {
       name: newName.trim(),
       type: newType,
       muscleGroup: newMuscle,
+      category: newType === "cardio" ? "cardio" : newCategory,
       isCustom: true,
     };
     await addCustomExercise(exercise);
@@ -118,7 +120,18 @@ export default function ExercisesPage() {
             style={{ background: "var(--bg-card)" }}
           >
             <div>
-              <p className="font-medium text-sm">{ex.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm">{ex.name}</p>
+                <span
+                  className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                  style={{
+                    background: CATEGORY_CONFIG[ex.category].bg,
+                    color: CATEGORY_CONFIG[ex.category].color,
+                  }}
+                >
+                  {CATEGORY_CONFIG[ex.category].label}
+                </span>
+              </div>
               <p className="text-xs capitalize mt-0.5" style={{ color: "var(--text-muted)" }}>
                 {ex.muscleGroup} &bull; {ex.type}
                 {ex.isCustom ? " • Custom" : ""}
@@ -179,24 +192,45 @@ export default function ExercisesPage() {
                 </div>
               </div>
               {newType === "strength" && (
-                <div>
-                  <label className="text-xs font-medium mb-1 block" style={{ color: "var(--text-muted)" }}>MUSCLE GROUP</label>
-                  <div className="flex flex-wrap gap-2">
-                    {MUSCLE_GROUPS.filter((mg) => mg !== "cardio").map((mg) => (
-                      <button
-                        key={mg}
-                        onClick={() => setNewMuscle(mg)}
-                        className="px-3 py-1.5 rounded-full text-xs font-medium capitalize"
-                        style={{
-                          background: newMuscle === mg ? "var(--accent)" : "var(--bg-card)",
-                          color: newMuscle === mg ? "white" : "var(--text-secondary)",
-                        }}
-                      >
-                        {mg}
-                      </button>
-                    ))}
+                <>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: "var(--text-muted)" }}>MUSCLE GROUP</label>
+                    <div className="flex flex-wrap gap-2">
+                      {MUSCLE_GROUPS.filter((mg) => mg !== "cardio").map((mg) => (
+                        <button
+                          key={mg}
+                          onClick={() => setNewMuscle(mg)}
+                          className="px-3 py-1.5 rounded-full text-xs font-medium capitalize"
+                          style={{
+                            background: newMuscle === mg ? "var(--accent)" : "var(--bg-card)",
+                            color: newMuscle === mg ? "white" : "var(--text-secondary)",
+                          }}
+                        >
+                          {mg}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                  <div>
+                    <label className="text-xs font-medium mb-1 block" style={{ color: "var(--text-muted)" }}>CATEGORY</label>
+                    <div className="flex flex-wrap gap-2">
+                      {(["push", "pull", "legs", "core"] as WorkoutCategory[]).map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setNewCategory(cat)}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold"
+                          style={{
+                            background: newCategory === cat ? CATEGORY_CONFIG[cat].bg : "var(--bg-card)",
+                            color: newCategory === cat ? CATEGORY_CONFIG[cat].color : "var(--text-secondary)",
+                            border: newCategory === cat ? `1px solid ${CATEGORY_CONFIG[cat].color}` : "1px solid transparent",
+                          }}
+                        >
+                          {CATEGORY_CONFIG[cat].label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
               <div className="flex gap-3 mt-2">
                 <button
