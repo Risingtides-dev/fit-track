@@ -10,17 +10,16 @@ import { Workout, WorkoutExercise, Exercise, WorkoutCategory } from "@/lib/types
 import { saveWorkout, getWorkout, getExercises } from "@/lib/db";
 import { generateId, todayISO, CATEGORY_CONFIG } from "@/lib/utils";
 import { WORKOUT_PROGRAMS, SuggestedProgram } from "@/lib/workoutPrograms";
-import { EXERCISE_GUIDES } from "@/lib/exerciseGuides";
 
 const ACTIVE_WORKOUT_KEY = "fittrack_active_workout";
 
-const CATEGORY_OPTIONS: { value: WorkoutCategory; label: string; description: string }[] = [
-  { value: "push", label: "Push", description: "Chest, shoulders, triceps" },
-  { value: "pull", label: "Pull", description: "Back, biceps, rear delts" },
-  { value: "legs", label: "Legs", description: "Quads, hamstrings, glutes, calves" },
-  { value: "upper", label: "Upper", description: "Push + Pull combined" },
-  { value: "core", label: "Core", description: "Abs, obliques" },
-  { value: "cardio", label: "Cardio", description: "Running, cycling, etc." },
+const CATEGORY_OPTIONS: { value: WorkoutCategory; label: string; icon: string }[] = [
+  { value: "push", label: "Push", icon: "PUSH" },
+  { value: "pull", label: "Pull", icon: "PULL" },
+  { value: "legs", label: "Legs", icon: "LEGS" },
+  { value: "upper", label: "Upper", icon: "UPPR" },
+  { value: "core", label: "Core", icon: "CORE" },
+  { value: "cardio", label: "Cardio", icon: "CRDO" },
 ];
 
 export default function WorkoutPage() {
@@ -76,7 +75,6 @@ export default function WorkoutPage() {
     const now = new Date().toISOString();
     const exercises: WorkoutExercise[] = [];
 
-    // If a program is selected, pre-load its exercises
     if (selectedProgram && allExercises.length > 0) {
       selectedProgram.exerciseIds.forEach((exId, idx) => {
         const exercise = allExercises.find((e) => e.id === exId);
@@ -167,21 +165,19 @@ export default function WorkoutPage() {
     }
   }
 
-  // No active workout — show category picker + start screen
+  // ==========================================
+  // START SCREEN — no active workout
+  // ==========================================
   if (!workout) {
     return (
       <div className="min-h-screen pb-20">
-        <div className="px-5 pt-12 pb-6">
-          <h1 className="text-2xl font-bold">New Workout</h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            Pick your focus, or just start and add any exercises
-          </p>
+        <div className="px-5 pt-14 pb-8">
+          <h1 className="text-3xl font-black">Start Training</h1>
         </div>
 
-        {/* Category selector */}
-        <div className="px-5 mb-6">
-          <h2 className="text-xs font-semibold mb-3" style={{ color: "var(--text-secondary)" }}>WORKOUT TYPE</h2>
-          <div className="grid grid-cols-2 gap-2.5">
+        {/* Category selector — big tactile buttons */}
+        <div className="px-5 mb-8">
+          <div className="grid grid-cols-3 gap-2.5">
             {CATEGORY_OPTIONS.map((opt) => {
               const isSelected = selectedCategories.includes(opt.value);
               const cfg = CATEGORY_CONFIG[opt.value];
@@ -189,68 +185,66 @@ export default function WorkoutPage() {
                 <button
                   key={opt.value}
                   onClick={() => toggleCategory(opt.value)}
-                  className="rounded-2xl p-4 text-left active:opacity-80 transition-all"
+                  className="rounded-2xl py-5 flex flex-col items-center gap-1.5 active:scale-95 transition-all"
                   style={{
                     background: isSelected ? cfg.bg : "var(--bg-card)",
                     border: isSelected ? `2px solid ${cfg.color}` : "2px solid var(--border)",
                   }}
                 >
-                  <p className="font-semibold text-sm" style={{ color: isSelected ? cfg.color : "var(--text-primary)" }}>
+                  <span
+                    className="text-xs font-black tracking-wider"
+                    style={{ color: isSelected ? cfg.color : "var(--text-muted)" }}
+                  >
+                    {opt.icon}
+                  </span>
+                  <span
+                    className="text-base font-bold"
+                    style={{ color: isSelected ? cfg.color : "var(--text-primary)" }}
+                  >
                     {opt.label}
-                  </p>
-                  <p className="text-[10px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-                    {opt.description}
-                  </p>
+                  </span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Suggested Programs */}
+        {/* Suggested Programs — horizontal scroll cards */}
         {availablePrograms.length > 0 && (
-          <div className="px-5 mb-6">
-            <h2 className="text-xs font-semibold mb-3" style={{ color: "var(--text-secondary)" }}>SUGGESTED ROUTINES</h2>
-            <div className="flex flex-col gap-2">
+          <div className="mb-8">
+            <h2 className="text-xs font-black tracking-widest mb-3 px-5" style={{ color: "var(--text-muted)" }}>SUGGESTED ROUTINES</h2>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar px-5">
               {availablePrograms.map((program, i) => {
                 const isSelected = selectedProgram?.name === program.name;
                 return (
                   <button
                     key={i}
                     onClick={() => setSelectedProgram(isSelected ? null : program)}
-                    className="rounded-2xl p-4 text-left active:opacity-80 transition-all"
+                    className="rounded-2xl p-4 text-left active:scale-[0.97] transition-all shrink-0"
                     style={{
-                      background: isSelected ? "rgba(59,130,246,0.08)" : "var(--bg-card)",
-                      border: isSelected ? "2px solid var(--accent)" : "1px solid var(--border)",
+                      width: 220,
+                      background: isSelected ? "rgba(59,130,246,0.1)" : "var(--bg-card)",
+                      border: isSelected ? "2px solid var(--accent)" : "1.5px solid var(--border)",
                     }}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-semibold text-sm" style={{ color: isSelected ? "var(--accent)" : "var(--text-primary)" }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="font-bold text-sm" style={{ color: isSelected ? "var(--accent)" : "var(--text-primary)" }}>
                         {program.name}
                       </p>
                       {isSelected && (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4" style={{ color: "var(--accent)" }}>
-                          <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "var(--accent)" }}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} className="w-3 h-3">
+                            <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
                       )}
                     </div>
-                    <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+                    <p className="text-[11px] mb-2.5" style={{ color: "var(--text-muted)" }}>
                       {program.description}
                     </p>
-                    <div className="flex flex-wrap gap-1">
-                      {program.exerciseIds.map((exId) => {
-                        const ex = allExercises.find((e) => e.id === exId);
-                        return ex ? (
-                          <span
-                            key={exId}
-                            className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                            style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-secondary)" }}
-                          >
-                            {ex.name}
-                          </span>
-                        ) : null;
-                      })}
-                    </div>
+                    <p className="text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>
+                      {program.exerciseIds.length} exercises
+                    </p>
                   </button>
                 );
               })}
@@ -258,48 +252,20 @@ export default function WorkoutPage() {
           </div>
         )}
 
-        {/* Preview */}
-        {(selectedCategories.length > 0 || selectedProgram) && (
-          <div className="px-5 mb-6">
-            <div className="rounded-2xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <p className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>SESSION NAME</p>
-              <p className="font-semibold">{getWorkoutName()}</p>
-              <div className="flex gap-1.5 mt-2">
-                {selectedCategories.map((cat) => (
-                  <span
-                    key={cat}
-                    className="text-[10px] px-2.5 py-1 rounded-full font-semibold"
-                    style={{ background: CATEGORY_CONFIG[cat].bg, color: CATEGORY_CONFIG[cat].color }}
-                  >
-                    {CATEGORY_CONFIG[cat].label}
-                  </span>
-                ))}
-              </div>
-              {selectedProgram && (
-                <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                  {selectedProgram.exerciseIds.length} exercises will be pre-loaded
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Start button */}
+        {/* GO button — massive, unmistakable */}
         <div className="px-5">
           <button
             onClick={startWorkout}
-            className="w-full py-4 rounded-2xl font-semibold text-white text-lg active:opacity-80"
+            className="w-full py-5 rounded-2xl font-black text-white text-xl active:scale-[0.97] transition-transform"
             style={{ background: "var(--accent)" }}
           >
-            {selectedProgram ? `Start ${selectedProgram.name}` : "Start Workout"}
+            {selectedProgram ? "GO" : "START"}
           </button>
-          <p className="text-center text-xs mt-3" style={{ color: "var(--text-muted)" }}>
-            {selectedProgram
-              ? "Exercises will be pre-loaded. You can add or remove any."
-              : selectedCategories.length === 0
-                ? "No filter — all exercises available"
-                : "Exercise picker will be pre-filtered. You can still add any exercise."}
-          </p>
+          {selectedProgram && (
+            <p className="text-center text-xs mt-3 font-semibold" style={{ color: "var(--text-muted)" }}>
+              {selectedProgram.name} — {selectedProgram.exerciseIds.length} exercises pre-loaded
+            </p>
+          )}
         </div>
 
         <BottomNav />
@@ -307,43 +273,50 @@ export default function WorkoutPage() {
     );
   }
 
-  // Determine category filters for the exercise picker based on workout
+  // ==========================================
+  // ACTIVE WORKOUT — no bottom nav, full screen gym mode
+  // ==========================================
   const pickerCategories = workout.category === "custom"
     ? selectedCategories.length > 0 ? selectedCategories : undefined
     : workout.category ? [workout.category] : undefined;
 
+  const totalSets = workout.exercises.reduce((sum, e) => sum + (e.sets?.length ?? 0), 0);
+
   return (
-    <div className="min-h-screen pb-20">
-      {/* Header */}
-      <div className="px-5 pt-12 pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <input
-              type="text"
-              value={workout.name}
-              onChange={(e) => setWorkout({ ...workout, name: e.target.value })}
-              className="text-xl font-bold bg-transparent outline-none w-full"
-              style={{ color: "var(--text-primary)" }}
-            />
-            <div className="flex items-center gap-3 mt-1">
-              <WorkoutTimer startTime={workout.startTime} />
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {workout.exercises.length} exercise{workout.exercises.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowFinish(true)}
-            className="px-4 py-2 rounded-xl font-semibold text-sm active:opacity-80 shrink-0 ml-3"
-            style={{ background: "var(--success)", color: "white" }}
-          >
-            Finish
-          </button>
+    <div className="min-h-screen pb-6">
+      {/* Sticky top bar */}
+      <div
+        className="sticky top-0 z-40 px-5 pt-3 pb-3 flex items-center justify-between"
+        style={{ background: "var(--bg-primary)", borderBottom: "1px solid var(--border)" }}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <WorkoutTimer startTime={workout.startTime} />
+          <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+            {workout.exercises.length} ex &bull; {totalSets} sets
+          </span>
         </div>
+        <button
+          onClick={() => setShowFinish(true)}
+          className="px-5 py-2.5 rounded-xl font-black text-sm active:scale-95 transition-transform shrink-0"
+          style={{ background: "var(--success)", color: "white" }}
+        >
+          FINISH
+        </button>
       </div>
 
-      {/* Exercises */}
-      <div className="px-5 flex flex-col gap-3">
+      {/* Workout name */}
+      <div className="px-5 pt-4 pb-2">
+        <input
+          type="text"
+          value={workout.name}
+          onChange={(e) => setWorkout({ ...workout, name: e.target.value })}
+          className="text-xl font-black bg-transparent outline-none w-full"
+          style={{ color: "var(--text-primary)" }}
+        />
+      </div>
+
+      {/* Exercise cards */}
+      <div className="px-4 flex flex-col gap-3 pb-4">
         {workout.exercises.map((ex) => (
           <SetLogger
             key={ex.id}
@@ -353,15 +326,16 @@ export default function WorkoutPage() {
           />
         ))}
 
+        {/* Add exercise — big dashed button */}
         <button
           onClick={() => setShowPicker(true)}
-          className="w-full py-4 rounded-2xl font-semibold text-sm active:opacity-80 flex items-center justify-center gap-2"
-          style={{ background: "var(--bg-card)", border: "2px dashed var(--border)", color: "var(--text-secondary)" }}
+          className="w-full py-5 rounded-2xl font-bold text-base active:scale-[0.97] transition-transform flex items-center justify-center gap-2"
+          style={{ border: "2.5px dashed var(--border)", color: "var(--text-muted)" }}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-6 h-6">
             <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Add Exercise
+          ADD EXERCISE
         </button>
       </div>
 
@@ -374,41 +348,41 @@ export default function WorkoutPage() {
       )}
 
       {showFinish && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
-          <div className="w-full max-w-lg rounded-t-3xl p-6" style={{ background: "var(--bg-secondary)" }}>
-            <h2 className="text-lg font-bold mb-4">Finish Workout?</h2>
-            <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-              {workout.exercises.length} exercises &bull;{" "}
-              {workout.exercises.reduce((sum, e) => sum + (e.sets?.length ?? 0), 0)} sets logged
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <div
+            className="w-full max-w-lg rounded-t-3xl p-6 pb-10"
+            style={{ background: "var(--bg-secondary)" }}
+          >
+            <h2 className="text-xl font-black mb-2">Done?</h2>
+            <p className="text-sm font-semibold mb-6" style={{ color: "var(--text-muted)" }}>
+              {workout.exercises.length} exercises &bull; {totalSets} sets logged
             </p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={finishWorkout}
-                className="w-full py-3.5 rounded-2xl font-semibold text-white active:opacity-80"
+                className="w-full py-4 rounded-2xl font-black text-white text-lg active:scale-[0.97] transition-transform"
                 style={{ background: "var(--success)" }}
               >
-                Save & Finish
+                SAVE & FINISH
               </button>
               <button
                 onClick={discardWorkout}
-                className="w-full py-3.5 rounded-2xl font-semibold active:opacity-80"
+                className="w-full py-4 rounded-2xl font-bold text-base active:scale-[0.97] transition-transform"
                 style={{ background: "rgba(239,68,68,0.1)", color: "var(--danger)" }}
               >
-                Discard Workout
+                Discard
               </button>
               <button
                 onClick={() => setShowFinish(false)}
-                className="w-full py-3.5 rounded-2xl font-semibold active:opacity-80"
-                style={{ color: "var(--text-secondary)" }}
+                className="w-full py-3 rounded-2xl font-bold active:opacity-70"
+                style={{ color: "var(--text-muted)" }}
               >
-                Keep Training
+                Keep Going
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <BottomNav />
     </div>
   );
 }
