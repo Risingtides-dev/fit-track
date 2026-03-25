@@ -7,8 +7,10 @@ import ExercisePicker from "@/components/ExercisePicker";
 import SetLogger from "@/components/SetLogger";
 import WorkoutTimer from "@/components/WorkoutTimer";
 import { Workout, WorkoutExercise, Exercise, WorkoutCategory } from "@/lib/types";
-import { saveWorkout, getWorkout } from "@/lib/db";
+import { saveWorkout, getWorkout, getExercises } from "@/lib/db";
 import { generateId, todayISO, CATEGORY_CONFIG } from "@/lib/utils";
+import { WORKOUT_PROGRAMS, SuggestedProgram } from "@/lib/workoutPrograms";
+import { EXERCISE_GUIDES } from "@/lib/exerciseGuides";
 
 const ACTIVE_WORKOUT_KEY = "fittrack_active_workout";
 
@@ -27,6 +29,8 @@ export default function WorkoutPage() {
   const [showPicker, setShowPicker] = useState(false);
   const [showFinish, setShowFinish] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<WorkoutCategory[]>([]);
+  const [selectedProgram, setSelectedProgram] = useState<SuggestedProgram | null>(null);
+  const [allExercises, setAllExercises] = useState<Exercise[]>([]);
 
   useEffect(() => {
     const activeId = localStorage.getItem(ACTIVE_WORKOUT_KEY);
@@ -36,6 +40,7 @@ export default function WorkoutPage() {
         else localStorage.removeItem(ACTIVE_WORKOUT_KEY);
       });
     }
+    getExercises().then(setAllExercises);
   }, []);
 
   useEffect(() => {
@@ -47,18 +52,18 @@ export default function WorkoutPage() {
   function toggleCategory(cat: WorkoutCategory) {
     setSelectedCategories((prev) => {
       if (prev.includes(cat)) return prev.filter((c) => c !== cat);
-      // If selecting "upper", remove push/pull since upper includes them
       if (cat === "upper") return [...prev.filter((c) => c !== "push" && c !== "pull"), cat];
-      // If selecting push or pull while upper is selected, remove upper and add both individually
       if ((cat === "push" || cat === "pull") && prev.includes("upper")) {
         const other = cat === "push" ? "pull" : "push";
         return [...prev.filter((c) => c !== "upper"), other, cat];
       }
       return [...prev, cat];
     });
+    setSelectedProgram(null);
   }
 
   function getWorkoutName(): string {
+    if (selectedProgram) return selectedProgram.name;
     if (selectedCategories.length === 0) {
       const day = new Date().toLocaleDateString("en-US", { weekday: "long" });
       return `${day} Workout`;
@@ -69,13 +74,33 @@ export default function WorkoutPage() {
 
   function startWorkout() {
     const now = new Date().toISOString();
+    const exercises: WorkoutExercise[] = [];
+
+    // If a program is selected, pre-load its exercises
+    if (selectedProgram && allExercises.length > 0) {
+      selectedProgram.exerciseIds.forEach((exId, idx) => {
+        const exercise = allExercises.find((e) => e.id === exId);
+        if (exercise) {
+          exercises.push({
+            id: generateId() + idx,
+            exerciseId: exercise.id,
+            exerciseName: exercise.name,
+            exerciseType: exercise.type,
+            sets: exercise.type === "strength" ? [] : undefined,
+            cardio: exercise.type === "cardio" ? { id: generateId(), duration: 0 } : undefined,
+            order: idx,
+          });
+        }
+      });
+    }
+
     const w: Workout = {
       id: generateId(),
       date: todayISO(),
       startTime: now,
       name: getWorkoutName(),
       category: selectedCategories.length === 1 ? selectedCategories[0] : "custom",
-      exercises: [],
+      exercises,
     };
     setWorkout(w);
     localStorage.setItem(ACTIVE_WORKOUT_KEY, w.id);
@@ -132,6 +157,16 @@ export default function WorkoutPage() {
     setShowFinish(false);
   }
 
+  // Get available programs for selected categories
+  const availablePrograms: SuggestedProgram[] = [];
+  if (selectedCategories.length > 0) {
+    for (const cat of selectedCategories) {
+      if (cat !== "custom" && WORKOUT_PROGRAMS[cat]) {
+        availablePrograms.push(...WORKOUT_PROGRAMS[cat]);
+      }
+    }
+  }
+
   // No active workout — show category picker + start screen
   if (!workout) {
     return (
@@ -172,8 +207,59 @@ export default function WorkoutPage() {
           </div>
         </div>
 
+        {/* Suggested Programs */}
+        {availablePrograms.length > 0 && (
+          <div className="px-5 mb-6">
+            <h2 className="text-xs font-semibold mb-3" style={{ color: "var(--text-secondary)" }}>SUGGESTED ROUTINES</h2>
+            <div className="flex flex-col gap-2">
+              {availablePrograms.map((program, i) => {
+                const isSelected = selectedProgram?.name === program.name;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedProgram(isSelected ? null : program)}
+                    className="rounded-2xl p-4 text-left active:opacity-80 transition-all"
+                    style={{
+                      background: isSelected ? "rgba(59,130,246,0.08)" : "var(--bg-card)",
+                      border: isSelected ? "2px solid var(--accent)" : "1px solid var(--border)",
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-sm" style={{ color: isSelected ? "var(--accent)" : "var(--text-primary)" }}>
+                        {program.name}
+                      </p>
+                      {isSelected && (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4" style={{ color: "var(--accent)" }}>
+                          <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
+                    <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+                      {program.description}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {program.exerciseIds.map((exId) => {
+                        const ex = allExercises.find((e) => e.id === exId);
+                        return ex ? (
+                          <span
+                            key={exId}
+                            className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                            style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-secondary)" }}
+                          >
+                            {ex.name}
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Preview */}
-        {selectedCategories.length > 0 && (
+        {(selectedCategories.length > 0 || selectedProgram) && (
           <div className="px-5 mb-6">
             <div className="rounded-2xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
               <p className="text-xs font-medium mb-2" style={{ color: "var(--text-muted)" }}>SESSION NAME</p>
@@ -189,6 +275,11 @@ export default function WorkoutPage() {
                   </span>
                 ))}
               </div>
+              {selectedProgram && (
+                <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+                  {selectedProgram.exerciseIds.length} exercises will be pre-loaded
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -200,12 +291,14 @@ export default function WorkoutPage() {
             className="w-full py-4 rounded-2xl font-semibold text-white text-lg active:opacity-80"
             style={{ background: "var(--accent)" }}
           >
-            Start Workout
+            {selectedProgram ? `Start ${selectedProgram.name}` : "Start Workout"}
           </button>
           <p className="text-center text-xs mt-3" style={{ color: "var(--text-muted)" }}>
-            {selectedCategories.length === 0
-              ? "No filter — all exercises available"
-              : "Exercise picker will be pre-filtered. You can still add any exercise."}
+            {selectedProgram
+              ? "Exercises will be pre-loaded. You can add or remove any."
+              : selectedCategories.length === 0
+                ? "No filter — all exercises available"
+                : "Exercise picker will be pre-filtered. You can still add any exercise."}
           </p>
         </div>
 
