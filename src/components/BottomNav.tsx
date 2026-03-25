@@ -22,10 +22,10 @@ const tabs = [
     ),
   },
   {
-    label: "Workout",
+    label: "Train",
     path: "/workout",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-7 h-7">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-7 h-7">
         <path d="M12 4v16m8-8H4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
@@ -56,32 +56,35 @@ export default function BottomNav() {
   const router = useRouter();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50" style={{ background: "var(--bg-secondary)", borderTop: "1px solid var(--border)" }}>
-      <div className="flex items-center justify-around max-w-lg mx-auto h-16 pb-[env(safe-area-inset-bottom)]">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 safe-bottom"
+      style={{ background: "var(--bg-secondary)", borderTop: "1px solid var(--border)" }}
+    >
+      <div className="flex items-center justify-around max-w-lg mx-auto h-[72px]">
         {tabs.map((tab) => {
           const isActive = pathname === tab.path;
           return (
             <button
               key={tab.path}
               onClick={() => router.push(tab.path)}
-              className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 transition-colors"
+              className="flex flex-col items-center justify-center gap-0.5 min-w-[56px] min-h-[56px] active:scale-90 transition-transform"
               style={{
-                color: tab.isMain ? "var(--accent)" : isActive ? "var(--text-primary)" : "var(--text-muted)",
+                color: tab.isMain ? "white" : isActive ? "var(--text-primary)" : "var(--text-muted)",
                 background: "none",
                 border: "none",
               }}
             >
               {tab.isMain ? (
                 <div
-                  className="flex items-center justify-center w-12 h-12 rounded-full -mt-5"
+                  className="flex items-center justify-center w-14 h-14 rounded-2xl -mt-6"
                   style={{ background: "var(--accent)" }}
                 >
-                  <span style={{ color: "white" }}>{tab.icon}</span>
+                  {tab.icon}
                 </div>
               ) : (
                 tab.icon
               )}
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <span className="text-[10px] font-bold">{tab.label}</span>
             </button>
           );
         })}

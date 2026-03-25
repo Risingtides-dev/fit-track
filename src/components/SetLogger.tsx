@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StrengthSet, CardioEntry, WorkoutExercise } from "@/lib/types";
 import { generateId } from "@/lib/utils";
-import ScrollPicker from "./ScrollPicker";
 
 interface Props {
   exercise: WorkoutExercise;
@@ -11,36 +10,43 @@ interface Props {
   onRemove: () => void;
 }
 
-const WEIGHT_VALUES = Array.from({ length: 121 }, (_, i) => i * 5); // 0 to 600 in 5lb steps
-const REP_VALUES = Array.from({ length: 31 }, (_, i) => i); // 0 to 30
-
 export default function SetLogger({ exercise, onUpdate, onRemove }: Props) {
   const [collapsed, setCollapsed] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
-  const lastSet = exercise.sets?.[exercise.sets.length - 1];
-  const [pickerWeight, setPickerWeight] = useState(lastSet?.weight ?? 135);
-  const [pickerReps, setPickerReps] = useState(lastSet?.reps ?? 10);
-
+  const [justLogged, setJustLogged] = useState(false);
   const isStrength = exercise.exerciseType === "strength";
+  const lastSet = exercise.sets?.[exercise.sets.length - 1];
+  const [weight, setWeight] = useState(lastSet?.weight ?? 135);
+  const [reps, setReps] = useState(lastSet?.reps ?? 10);
 
-  function addSetFromPicker() {
+  // Sync weight/reps when new sets are added externally
+  useEffect(() => {
+    if (lastSet) {
+      setWeight(lastSet.weight);
+      setReps(lastSet.reps);
+    }
+  }, [exercise.sets?.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function logSet() {
     const newSet: StrengthSet = {
       id: generateId(),
-      reps: pickerReps,
-      weight: pickerWeight,
+      reps,
+      weight,
       unit: lastSet?.unit ?? "lbs",
     };
     onUpdate({
       ...exercise,
       sets: [...(exercise.sets ?? []), newSet],
     });
-    setShowPicker(false);
+    // Flash feedback
+    setJustLogged(true);
+    setTimeout(() => setJustLogged(false), 400);
   }
 
-  function removeSet(setId: string) {
+  function removeLastSet() {
+    if (!exercise.sets?.length) return;
     onUpdate({
       ...exercise,
-      sets: exercise.sets?.filter((s) => s.id !== setId),
+      sets: exercise.sets.slice(0, -1),
     });
   }
 
@@ -51,235 +57,231 @@ export default function SetLogger({ exercise, onUpdate, onRemove }: Props) {
     });
   }
 
-  // Group identical sets for compact display: "3 × 135 lbs × 10"
-  function groupSets(sets: StrengthSet[]): { weight: number; reps: number; unit: string; count: number; ids: string[] }[] {
-    const groups: { weight: number; reps: number; unit: string; count: number; ids: string[] }[] = [];
-    for (const set of sets) {
-      const last = groups[groups.length - 1];
-      if (last && last.weight === set.weight && last.reps === set.reps && last.unit === set.unit) {
-        last.count++;
-        last.ids.push(set.id);
-      } else {
-        groups.push({ weight: set.weight, reps: set.reps, unit: set.unit, count: 1, ids: [set.id] });
-      }
-    }
-    return groups;
-  }
-
   const totalSets = exercise.sets?.length ?? 0;
-  const bestWeight = exercise.sets && exercise.sets.length > 0
-    ? Math.max(...exercise.sets.map((s) => s.weight))
-    : 0;
-  const bestSet = exercise.sets?.find((s) => s.weight === bestWeight);
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-      {/* Header */}
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: "var(--bg-card)",
+        border: justLogged ? "1.5px solid var(--success)" : "1px solid var(--border)",
+        transition: "border-color 0.3s",
+      }}
+    >
+      {/* Header - tap to collapse */}
       <div
-        className="flex items-center justify-between px-4 py-3 cursor-pointer active:opacity-80"
+        className="flex items-center justify-between px-4 py-3 active:opacity-70"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <div className="flex items-center gap-3">
-          <span
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0"
             style={{
               background: isStrength ? "rgba(59,130,246,0.15)" : "rgba(34,197,94,0.15)",
               color: isStrength ? "var(--accent)" : "var(--success)",
             }}
           >
             {isStrength ? totalSets : "C"}
-          </span>
-          <div>
-            <p className="font-semibold text-sm">{exercise.exerciseName}</p>
-            {isStrength && bestSet && bestWeight > 0 && (
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Best: {bestWeight} lbs × {bestSet.reps}
-              </p>
+          </div>
+          <div className="min-w-0">
+            <p className="font-bold text-base truncate">{exercise.exerciseName}</p>
+            {isStrength && totalSets > 0 && (
+              <div className="flex gap-1.5 mt-1 flex-wrap">
+                {exercise.sets!.map((s, i) => (
+                  <span
+                    key={s.id}
+                    className="text-[11px] px-2 py-0.5 rounded-full font-semibold"
+                    style={{ background: "rgba(59,130,246,0.12)", color: "var(--accent)" }}
+                  >
+                    {s.weight}×{s.reps}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            className="p-1.5 rounded-lg"
-            style={{ color: "var(--danger)" }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
-              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            className="w-4 h-4 transition-transform"
-            style={{
-              color: "var(--text-muted)",
-              transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
-            }}
-          >
-            <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          className="w-5 h-5 shrink-0 ml-2 transition-transform"
+          style={{
+            color: "var(--text-muted)",
+            transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+          }}
+        >
+          <path d="M19 9l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
 
-      {/* Content */}
+      {/* Control panel */}
       {!collapsed && (
         <div className="px-4 pb-4">
           {isStrength ? (
-            <>
-              {/* Compact set display */}
-              {exercise.sets && exercise.sets.length > 0 && (
-                <div className="flex flex-col gap-1.5 mb-3">
-                  {groupSets(exercise.sets).map((group, gi) => (
-                    <div
-                      key={gi}
-                      className="flex items-center justify-between px-3 py-2 rounded-xl"
-                      style={{ background: "var(--bg-input)" }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold" style={{ color: "var(--accent)", minWidth: 20 }}>
-                          {group.count > 1 ? `${group.count}×` : `${exercise.sets!.indexOf(exercise.sets!.find(s => s.id === group.ids[0])!) + 1}.`}
-                        </span>
-                        <span className="text-sm font-semibold">
-                          {group.weight} <span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>{group.unit}</span>
-                        </span>
-                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>×</span>
-                        <span className="text-sm font-semibold">
-                          {group.reps} <span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>reps</span>
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          // Remove the last set in this group
-                          removeSet(group.ids[group.ids.length - 1]);
-                        }}
-                        className="p-1 rounded"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
-                          <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
+            <div className="flex flex-col gap-3">
+              {/* Weight + Reps steppers side by side */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Weight stepper */}
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] font-bold tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>WEIGHT</span>
+                  <button
+                    onClick={() => setWeight((w) => Math.min(w + 5, 995))}
+                    className="w-full h-14 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
+                    style={{ background: "rgba(59,130,246,0.1)", color: "var(--accent)" }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-7 h-7">
+                      <path d="M12 19V5m-7 7h14" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <div className="flex items-baseline gap-1 py-3">
+                    <span className="text-4xl font-black tabular-nums">{weight}</span>
+                    <span className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>lbs</span>
+                  </div>
+                  <button
+                    onClick={() => setWeight((w) => Math.max(w - 5, 0))}
+                    className="w-full h-14 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
+                    style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-secondary)" }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-7 h-7">
+                      <path d="M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                 </div>
-              )}
 
-              {/* Scroll picker for adding sets */}
-              {showPicker ? (
-                <div className="rounded-xl p-4" style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}>
-                  <div className="flex justify-center gap-6 mb-4">
-                    <ScrollPicker
-                      values={WEIGHT_VALUES}
-                      selected={pickerWeight}
-                      onChange={setPickerWeight}
-                      label="WEIGHT"
-                      suffix="lbs"
-                    />
-                    <div className="flex items-center pt-5" style={{ color: "var(--text-muted)" }}>
-                      <span className="text-xl font-bold">×</span>
-                    </div>
-                    <ScrollPicker
-                      values={REP_VALUES}
-                      selected={pickerReps}
-                      onChange={setPickerReps}
-                      label="REPS"
-                    />
+                {/* Reps stepper */}
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] font-bold tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>REPS</span>
+                  <button
+                    onClick={() => setReps((r) => Math.min(r + 1, 99))}
+                    className="w-full h-14 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
+                    style={{ background: "rgba(59,130,246,0.1)", color: "var(--accent)" }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-7 h-7">
+                      <path d="M12 19V5m-7 7h14" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <div className="flex items-baseline gap-1 py-3">
+                    <span className="text-4xl font-black tabular-nums">{reps}</span>
+                    <span className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>reps</span>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowPicker(false)}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold active:opacity-80"
-                      style={{ background: "var(--bg-card)", color: "var(--text-secondary)" }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={addSetFromPicker}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white active:opacity-80"
-                      style={{ background: "var(--accent)" }}
-                    >
-                      Add Set
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setReps((r) => Math.max(r - 1, 0))}
+                    className="w-full h-14 rounded-xl flex items-center justify-center active:scale-95 transition-transform"
+                    style={{ background: "rgba(255,255,255,0.05)", color: "var(--text-secondary)" }}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-7 h-7">
+                      <path d="M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                 </div>
-              ) : (
+              </div>
+
+              {/* LOG SET button */}
+              <button
+                onClick={logSet}
+                className="w-full h-14 rounded-xl font-black text-lg text-white active:scale-[0.97] transition-transform flex items-center justify-center gap-2"
+                style={{ background: "var(--accent)" }}
+              >
+                LOG SET
+                {totalSets > 0 && (
+                  <span className="text-sm font-semibold opacity-70">#{totalSets + 1}</span>
+                )}
+              </button>
+
+              {/* Undo / Remove row */}
+              <div className="flex items-center justify-between">
+                {totalSets > 0 ? (
+                  <button
+                    onClick={removeLastSet}
+                    className="text-xs font-semibold px-3 py-2 rounded-lg active:scale-95 transition-transform"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    Undo last set
+                  </button>
+                ) : (
+                  <div />
+                )}
                 <button
-                  onClick={() => {
-                    // Pre-populate from last set
-                    if (lastSet) {
-                      setPickerWeight(lastSet.weight);
-                      setPickerReps(lastSet.reps);
-                    }
-                    setShowPicker(true);
-                  }}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors active:opacity-80"
-                  style={{ background: "rgba(59,130,246,0.1)", color: "var(--accent)" }}
+                  onClick={onRemove}
+                  className="text-xs font-semibold px-3 py-2 rounded-lg active:scale-95 transition-transform"
+                  style={{ color: "var(--danger)" }}
                 >
-                  + Add Set
+                  Remove exercise
                 </button>
-              )}
-            </>
+              </div>
+            </div>
           ) : (
-            /* Cardio */
+            /* Cardio — big input tiles */
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-medium mb-1 block" style={{ color: "var(--text-muted)" }}>DURATION (min)</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={exercise.cardio?.duration || ""}
-                    onChange={(e) => updateCardio({ duration: parseInt(e.target.value) || 0 })}
-                    placeholder="0"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm font-medium outline-none"
-                    style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-                  />
+                  <label className="text-[10px] font-bold tracking-widest mb-1.5 block" style={{ color: "var(--text-muted)" }}>DURATION</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={exercise.cardio?.duration || ""}
+                      onChange={(e) => updateCardio({ duration: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="w-full px-4 py-4 rounded-xl text-2xl font-bold text-center outline-none"
+                      style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                    />
+                    <span className="absolute right-3 bottom-2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>min</span>
+                  </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-medium mb-1 block" style={{ color: "var(--text-muted)" }}>DISTANCE (mi)</label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={exercise.cardio?.distance || ""}
-                    onChange={(e) => updateCardio({ distance: parseFloat(e.target.value) || 0 })}
-                    placeholder="0"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm font-medium outline-none"
-                    style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-                  />
+                  <label className="text-[10px] font-bold tracking-widest mb-1.5 block" style={{ color: "var(--text-muted)" }}>DISTANCE</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={exercise.cardio?.distance || ""}
+                      onChange={(e) => updateCardio({ distance: parseFloat(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="w-full px-4 py-4 rounded-xl text-2xl font-bold text-center outline-none"
+                      style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                    />
+                    <span className="absolute right-3 bottom-2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>mi</span>
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-medium mb-1 block" style={{ color: "var(--text-muted)" }}>CALORIES</label>
+                  <label className="text-[10px] font-bold tracking-widest mb-1.5 block" style={{ color: "var(--text-muted)" }}>CALORIES</label>
                   <input
                     type="number"
                     inputMode="numeric"
                     value={exercise.cardio?.calories || ""}
                     onChange={(e) => updateCardio({ calories: parseInt(e.target.value) || 0 })}
                     placeholder="0"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm font-medium outline-none"
+                    className="w-full px-4 py-4 rounded-xl text-2xl font-bold text-center outline-none"
                     style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-medium mb-1 block" style={{ color: "var(--text-muted)" }}>AVG HR (bpm)</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={exercise.cardio?.avgHeartRate || ""}
-                    onChange={(e) => updateCardio({ avgHeartRate: parseInt(e.target.value) || 0 })}
-                    placeholder="0"
-                    className="w-full px-3 py-2.5 rounded-xl text-sm font-medium outline-none"
-                    style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-                  />
+                  <label className="text-[10px] font-bold tracking-widest mb-1.5 block" style={{ color: "var(--text-muted)" }}>AVG HR</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={exercise.cardio?.avgHeartRate || ""}
+                      onChange={(e) => updateCardio({ avgHeartRate: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="w-full px-4 py-4 rounded-xl text-2xl font-bold text-center outline-none"
+                      style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                    />
+                    <span className="absolute right-3 bottom-2 text-[10px] font-semibold" style={{ color: "var(--text-muted)" }}>bpm</span>
+                  </div>
                 </div>
               </div>
+              <button
+                onClick={onRemove}
+                className="text-xs font-semibold px-3 py-2 rounded-lg active:scale-95 transition-transform self-end"
+                style={{ color: "var(--danger)" }}
+              >
+                Remove exercise
+              </button>
             </div>
           )}
         </div>
