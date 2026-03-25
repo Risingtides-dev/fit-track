@@ -4,8 +4,22 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
 import { getWorkout } from "@/lib/db";
-import { Workout } from "@/lib/types";
+import { Workout, StrengthSet } from "@/lib/types";
 import { formatDate, formatDateTime, getDuration, getEstimated1RM } from "@/lib/utils";
+
+// Group consecutive identical sets for compact display
+function groupSets(sets: StrengthSet[]): { weight: number; reps: number; unit: string; count: number }[] {
+  const groups: { weight: number; reps: number; unit: string; count: number }[] = [];
+  for (const set of sets) {
+    const last = groups[groups.length - 1];
+    if (last && last.weight === set.weight && last.reps === set.reps && last.unit === set.unit) {
+      last.count++;
+    } else {
+      groups.push({ weight: set.weight, reps: set.reps, unit: set.unit, count: 1 });
+    }
+  }
+  return groups;
+}
 
 export default function WorkoutDetailPage() {
   const params = useParams();
@@ -26,6 +40,11 @@ export default function WorkoutDetailPage() {
       </div>
     );
   }
+
+  const totalVolume = workout.exercises.reduce(
+    (sum, e) => sum + (e.sets?.reduce((s, set) => s + set.weight * set.reps, 0) ?? 0),
+    0
+  );
 
   return (
     <div className="min-h-screen pb-20">
@@ -64,18 +83,13 @@ export default function WorkoutDetailPage() {
           <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>SETS</p>
         </div>
         <div className="rounded-2xl p-3 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-          <p className="text-xl font-bold">
-            {workout.exercises.reduce(
-              (sum, e) => sum + (e.sets?.reduce((s, set) => s + set.weight * set.reps, 0) ?? 0),
-              0
-            ).toLocaleString()}
-          </p>
+          <p className="text-xl font-bold">{totalVolume.toLocaleString()}</p>
           <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>VOLUME (lbs)</p>
         </div>
       </div>
 
-      {/* Exercises */}
-      <div className="px-5 flex flex-col gap-4">
+      {/* Exercises - compact display */}
+      <div className="px-5 flex flex-col gap-3">
         {workout.exercises.map((ex, idx) => (
           <div
             key={ex.id}
@@ -92,50 +106,64 @@ export default function WorkoutDetailPage() {
               >
                 {idx + 1}
               </span>
-              <p className="font-semibold">{ex.exerciseName}</p>
+              <div className="flex-1">
+                <p className="font-semibold">{ex.exerciseName}</p>
+                {ex.exerciseType === "strength" && ex.sets && ex.sets.length > 0 && (
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    {ex.sets.length} set{ex.sets.length !== 1 ? "s" : ""} &bull; Best 1RM: {
+                      Math.max(...ex.sets.filter(s => s.weight > 0).map(s => getEstimated1RM(s.weight, s.reps)))
+                    || "-"} lbs
+                  </p>
+                )}
+              </div>
             </div>
 
             {ex.exerciseType === "strength" && ex.sets && ex.sets.length > 0 ? (
-              <div>
-                <div className="grid grid-cols-4 gap-2 mb-2">
-                  <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>SET</span>
-                  <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>WEIGHT</span>
-                  <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>REPS</span>
-                  <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>EST 1RM</span>
-                </div>
-                {ex.sets.map((set, si) => (
-                  <div key={set.id} className="grid grid-cols-4 gap-2 py-1.5" style={{ borderTop: "1px solid var(--border)" }}>
-                    <span className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>{si + 1}</span>
-                    <span className="text-sm font-medium">{set.weight} {set.unit}</span>
-                    <span className="text-sm font-medium">{set.reps}</span>
-                    <span className="text-sm" style={{ color: "var(--accent)" }}>
-                      {set.weight > 0 ? getEstimated1RM(set.weight, set.reps) : "-"}
+              <div className="flex flex-col gap-1.5">
+                {groupSets(ex.sets).map((group, gi) => (
+                  <div
+                    key={gi}
+                    className="flex items-center justify-between px-3 py-2 rounded-xl"
+                    style={{ background: "rgba(255,255,255,0.03)" }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold" style={{ color: "var(--accent)", minWidth: 28 }}>
+                        {group.count > 1 ? `${group.count} sets` : `Set ${gi + 1}`}
+                      </span>
+                      <span className="text-sm font-semibold">
+                        {group.weight} <span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>{group.unit}</span>
+                        <span className="text-xs mx-1.5" style={{ color: "var(--text-muted)" }}>&times;</span>
+                        {group.reps} <span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>reps</span>
+                      </span>
+                    </div>
+                    <span className="text-xs font-medium" style={{ color: "var(--accent)" }}>
+                      {group.weight > 0 ? `~${getEstimated1RM(group.weight, group.reps)} 1RM` : ""}
                     </span>
                   </div>
                 ))}
               </div>
             ) : ex.cardio ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>DURATION</p>
-                  <p className="text-sm font-medium">{ex.cardio.duration} min</p>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)" }}>
+                  <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>Duration</span>
+                  <span className="text-sm font-semibold">{ex.cardio.duration} min</span>
                 </div>
                 {ex.cardio.distance ? (
-                  <div>
-                    <p className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>DISTANCE</p>
-                    <p className="text-sm font-medium">{ex.cardio.distance} {ex.cardio.distanceUnit ?? "mi"}</p>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>Distance</span>
+                    <span className="text-sm font-semibold">{ex.cardio.distance} {ex.cardio.distanceUnit ?? "mi"}</span>
                   </div>
                 ) : null}
                 {ex.cardio.calories ? (
-                  <div>
-                    <p className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>CALORIES</p>
-                    <p className="text-sm font-medium">{ex.cardio.calories}</p>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>Calories</span>
+                    <span className="text-sm font-semibold">{ex.cardio.calories}</span>
                   </div>
                 ) : null}
                 {ex.cardio.avgHeartRate ? (
-                  <div>
-                    <p className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>AVG HR</p>
-                    <p className="text-sm font-medium">{ex.cardio.avgHeartRate} bpm</p>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <span className="text-[10px] font-medium" style={{ color: "var(--text-muted)" }}>Avg HR</span>
+                    <span className="text-sm font-semibold">{ex.cardio.avgHeartRate} bpm</span>
                   </div>
                 ) : null}
               </div>

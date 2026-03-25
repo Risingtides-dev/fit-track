@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Exercise, MuscleGroup, WorkoutCategory } from "@/lib/types";
 import { getExercises } from "@/lib/db";
 import { CATEGORY_CONFIG } from "@/lib/utils";
+import { EXERCISE_GUIDES, ExerciseGuide } from "@/lib/exerciseGuides";
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   "chest", "back", "shoulders", "biceps", "triceps",
@@ -31,6 +32,7 @@ export default function ExercisePicker({ onSelect, onClose, categoryFilters }: P
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<MuscleGroup | "all">("all");
   const [showAll, setShowAll] = useState(false);
+  const [expandedGuide, setExpandedGuide] = useState<string | null>(null);
 
   useEffect(() => {
     getExercises().then(setExercises);
@@ -46,8 +48,6 @@ export default function ExercisePicker({ onSelect, onClose, categoryFilters }: P
       return matchesSearch && matchesFilter && matchesCategory;
     });
   }, [exercises, search, filter, expandedFilters, showAll]);
-
-  const activeLabels = categoryFilters?.map((c) => CATEGORY_CONFIG[c].label).join(" + ");
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "var(--bg-primary)" }}>
@@ -141,32 +141,76 @@ export default function ExercisePicker({ onSelect, onClose, categoryFilters }: P
           </p>
         ) : (
           <div className="flex flex-col gap-1.5">
-            {filtered.map((ex) => (
-              <button
-                key={ex.id}
-                onClick={() => onSelect(ex)}
-                className="flex items-center justify-between px-4 py-3.5 rounded-xl text-left transition-colors active:opacity-80"
-                style={{ background: "var(--bg-card)" }}
-              >
-                <div>
-                  <p className="font-medium" style={{ color: "var(--text-primary)" }}>{ex.name}</p>
-                  <p className="text-xs capitalize mt-0.5" style={{ color: "var(--text-muted)" }}>
-                    {ex.muscleGroup} {ex.isCustom ? "• Custom" : ""}
-                  </p>
+            {filtered.map((ex) => {
+              const guide = EXERCISE_GUIDES[ex.id];
+              const isExpanded = expandedGuide === ex.id;
+
+              return (
+                <div key={ex.id} className="rounded-xl overflow-hidden" style={{ background: "var(--bg-card)" }}>
+                  <div className="flex items-center justify-between px-4 py-3.5">
+                    <button
+                      onClick={() => onSelect(ex)}
+                      className="flex-1 text-left active:opacity-80"
+                    >
+                      <p className="font-medium" style={{ color: "var(--text-primary)" }}>{ex.name}</p>
+                      <p className="text-xs capitalize mt-0.5" style={{ color: "var(--text-muted)" }}>
+                        {ex.muscleGroup}{ex.isCustom ? " • Custom" : ""}
+                        {guide ? ` • ${guide.primaryMuscles.join(", ")}` : ""}
+                      </p>
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {guide && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedGuide(isExpanded ? null : ex.id);
+                          }}
+                          className="p-1.5 rounded-lg"
+                          style={{
+                            background: isExpanded ? "rgba(59,130,246,0.15)" : "transparent",
+                            color: isExpanded ? "var(--accent)" : "var(--text-muted)",
+                          }}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-4m0-4h.01" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      )}
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                        style={{
+                          background: CATEGORY_CONFIG[ex.category].bg,
+                          color: CATEGORY_CONFIG[ex.category].color,
+                        }}
+                      >
+                        {CATEGORY_CONFIG[ex.category].label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Exercise guide expandable section */}
+                  {isExpanded && guide && (
+                    <div className="px-4 pb-3.5 pt-0">
+                      <div className="rounded-lg p-3" style={{ background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.12)" }}>
+                        <p className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+                          {guide.description}
+                        </p>
+                        <p className="text-[10px] font-semibold mb-1.5" style={{ color: "var(--accent)" }}>HOW TO</p>
+                        <ul className="flex flex-col gap-1">
+                          {guide.steps.map((step, i) => (
+                            <li key={i} className="text-xs flex gap-2" style={{ color: "var(--text-secondary)" }}>
+                              <span style={{ color: "var(--accent)" }}>{i + 1}.</span>
+                              {step}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                    style={{
-                      background: CATEGORY_CONFIG[ex.category].bg,
-                      color: CATEGORY_CONFIG[ex.category].color,
-                    }}
-                  >
-                    {CATEGORY_CONFIG[ex.category].label}
-                  </span>
-                </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
